@@ -1,16 +1,10 @@
 # AROS ScreenBar
 
-**A shared home for system status and application controls across AROS screens.**
+AROS ScreenBar brings system controls and application indicators to the screen
+title bar, available across AROS screens.
 
-AROS ScreenBar aims to turn the screen title bar into a consistent, extensible
-part of the desktop: a place where essential controls stay within reach as you
-move between screens, and running applications can bring their status and actions.
-
-The goal is a bar that grows with what you are doing. A music player can add
-playback controls, a file transfer can show progress, and a background service
-can expose its state. Permanent system modules and application-provided items
-share the same visual language and interaction rules. Users choose what appears;
-developers contribute through one module contract.
+Built-in modules and items added by running applications use the same interface
+and appearance. Users choose which items to show and how to arrange them.
 
 ## What we are building toward
 
