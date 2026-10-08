@@ -6,21 +6,16 @@ title bar, available across AROS screens.
 Built-in modules and items added by running applications use the same interface
 and appearance. Users choose which items to show and how to arrange them.
 
-## What we are building toward
+## Planned features
 
-- **Continuity across screens:** familiar controls and status wherever you work.
-- **A bar that follows activity:** application items appear while their producers
-  run and disappear when they are no longer needed.
-- **A coherent extension system:** shared presentation, dropdowns and settings,
-  with modules supplying data and actions.
-- **User control:** module selection, ordering and per-application visibility
-  through a dedicated preferences program.
-- **A practical path into AROS:** standalone delivery for existing distributions
-  alongside native system integration, targeting mainline and ABIv11.
+- System controls and status indicators available across screens.
+- Application items added when an application starts and removed when it exits.
+- One module interface, with shared styling, menus and settings.
+- Preferences for enabling, ordering and configuring modules and application items.
+- Standalone packages for existing distributions and native integration with
+  AROS mainline and ABIv11.
 
-This is the target experience. The [vision](docs/vision.md) explains the direction;
-the [module contract](docs/module-contract.md) describes the extension model and
-which interfaces already exist.
+See the [vision](docs/vision.md) and [module contract](docs/module-contract.md).
 
 ## Current prototype
 
