@@ -19,13 +19,13 @@ See the [vision](docs/vision.md) and [module contract](docs/module-contract.md).
 
 ## Current prototype
 
-The first implementation exercises clock, audio settings and screen selection
-through a standalone borderless overlay. It is a starting point for the broader
-system described above.
+The standalone host provides a clock, audio settings and screen selection.
+Applications can add items through an experimental C interface. Items that do not
+fit beside the screen title are available in an overflow menu.
 
-![AROS ScreenBar with the screen chooser open](docs/images/screenbar-dropdown.png)
+![AROS ScreenBar with application items and overflow](docs/images/screenbar-app-items.png)
 
-The current prototype's screen chooser on its demonstration screen.
+Three independent Counter providers, with one item in overflow.
 
 ### Available today
 
@@ -35,9 +35,13 @@ The current prototype's screen chooser on its demonstration screen.
 - Mouse selection, Up/Down, Return or keypad Enter, and Escape.
 - Keyboard scrolling when the list exceeds the available height.
 - Optional second public screen for trying screen switching.
+- External application items with text and a host-rendered action dropdown.
+- Example Counter provider; supports multiple instances.
 
 ```sh
 ScreenBar --demo
+# From a second Shell:
+ScreenBarCounter --label Counter
 ```
 
 Click the screen button again, press Escape in the chooser, or move focus away to

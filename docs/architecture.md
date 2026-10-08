@@ -1,36 +1,49 @@
+---
+type: reference
+updated: 2026-10-08
+---
+
 # Architecture
 
-`src/module.c` supplies shared built-in state and action mapping. The same state
-feeds both screen views. `src/screenbar.c` owns the overlay windows and renders
-icons/text using host-controlled geometry, screen fonts and bar pens.
+`src/screenbar.c` owns screen views, presentation and input. `src/item_layout.c`
+allocates a right-hand strip outside the title envelope and native right-relative
+gadgets. Excess items appear in overflow. A change in geometry or item identity
+closes and recreates the overlay, replying to its old events before replacing it;
+old click coordinates cannot select a newly placed item.
 
-`src/dropdown.c` is a platform-neutral selection/scrolling model. `src/popup.c`
-owns the Intuition dropdown, public-screen snapshots, input and refresh handling.
-Names are copied under the public-screen-list lock and reacquired before switching.
-There are no borrowed foreign screen pointers in the dropdown model. Temporarily
-private registered screens can remain listed; a failed lock is reported visibly.
+`src/registry.c` owns copied provider snapshots, tokens, revisions, pending actions
+and leases. `src/server.c` exposes the named Exec port. `src/provider.c` is the
+client helper. One registry feeds both views; providers do not receive drawing
+objects. See the [module contract](module-contract.md) for protocol and ownership.
 
-The chooser uses a borderless window with hover highlighting, press/release
-selection, keyboard navigation and scroll indicators. It redraws after expose.
-Oversized public-screen names are skipped; the list is bounded to 32 entries.
-Mouse-wheel scrolling and unrestricted lists are not implemented.
+`src/dropdown.c` models selection and scrolling. `src/popup.c` renders public-screen,
+overflow and action lists. Screen names are copied under the public-screen-list
+lock and reacquired before switching. Provider menus retain tokens and close if
+their provider disappears. Registered screens that are temporarily private can
+remain listed; a failed lock is reported visibly.
 
-## Attachment limits
+The chooser supports hover, same-row press/release selection, keyboard navigation,
+scroll indicators and expose redraw. Screen lists are bounded to 32 entries;
+oversized names are skipped. Mouse-wheel scrolling is not implemented.
 
-No Intuition or Decoration patch is installed. The standalone overlay attaches to
-Workbench and an optional owned demo screen. It does not attach to private app
-screens. A narrow screen that cannot fit the bar is rejected instead of covering
-the system depth gadget. Other font/theme/display combinations need verification.
+## Standalone attachment
 
-AROS toolbox input routing is disabled, so the prototype uses ordinary borderless
-windows. They can change focus and may be covered by system menus. Dismissal on
-focus loss does not consume an outside click. Safe modal input and native screen
-lifetime integration require further platform work.
+No Intuition or Decoration patch is installed. Views attach to Workbench and an
+optional owned demo screen. Other public screens can be selected; private app
+screens do not receive views. An insufficient strip hides the overlay rather than
+covering the title or native gadget. Preferences and autostart are not installed.
 
-The clock is cached per view and the event loop polls every five ticks. The module
-interface is internal and experimental; no external SDK or plugin loader exists.
-Application-provided indicators and preferences are future capabilities.
+The default title exclusion is a centered, font-measured envelope with 12 pixels
+of padding. It preserves the existing title position; it does not recenter system
+text or inspect private theme layout. `--title-right X` explicitly sets the right
+edge of the reserved title region for an off-center theme. The native integration
+track needs decoration-supplied geometry. Other themes and modes need independent
+runtime checks.
 
-Close external windows using ScreenBarDemo before exit. Visitors can prevent the
-owned demo screen from closing; ScreenBar reports that condition and returns
-nonzero rather than reporting clean teardown.
+The event loop polls every five ticks. These are ordinary borderless windows;
+clicking them can change focus. Outside-click dismissal on focus loss also passes
+the click to the underlying window. Native menu handling and screen lifetime
+integration remain platform work.
+
+Close external windows on ScreenBarDemo before host exit. Visitors can prevent
+that owned screen from closing; failure is logged and returns nonzero.

@@ -30,25 +30,17 @@ void sb_popup_close(struct SbPopup *p) {
  if(p->window) {struct IntuiMessage *m;while((m=(struct IntuiMessage*)GetMsg(p->window->UserPort)))ReplyMsg((struct Message*)m);
  CloseWindow(p->window);p->window=NULL;report(p,"dropdown closed");}
 }
-int sb_popup_open(struct SbPopup *p,struct Screen *s,struct DrawInfo *draw,int x,int y) {
- sb_popup_close(p);p->screen=s;p->draw=draw;p->current=-1;p->pressed=-1;
- int count=0,width=120;
- struct List *list=LockPubScreenList();
- if(list) {
-  for(struct PubScreenNode *n=(struct PubScreenNode*)list->lh_Head;n->psn_Node.ln_Succ && count<SB_MAX_SCREENS;n=(struct PubScreenNode*)n->psn_Node.ln_Succ) {
-   if(!n->psn_Node.ln_Name || strlen(n->psn_Node.ln_Name)>=sizeof(p->names[0]))continue;
-   strcpy(p->names[count],n->psn_Node.ln_Name);
-   int need=(strlen(p->names[count])+2)*draw->dri_Font->tf_XSize+20;if(need>width)width=need;
-   if(n->psn_Screen==s)p->current=count;
-   count++;
-  }
-  UnlockPubScreenList();
+static int open_window(struct SbPopup *p,struct Screen *s,struct DrawInfo *draw,int x,int y) {
+ int width=120;
+ for(int i=0;i<p->state.count;i++) {
+  int need=(strlen(p->names[i])+2)*draw->dri_Font->tf_XSize+20;
+  if(need>width)width=need;
  }
- if(!count || s->Width<32 || s->Height-y<28) {report(p,"dropdown unavailable: no screens or insufficient space");return 0;}
+ if(!p->state.count || s->Width<32 || s->Height-y<28) {report(p,"dropdown unavailable: no screens or insufficient space");return 0;}
  p->row_height=draw->dri_Font->tf_YSize+8;if(p->row_height<20)p->row_height=20;
- int visible=(s->Height-y-2*PAD)/p->row_height;if(visible>count)visible=count;
+ int visible=(s->Height-y-2*PAD)/p->row_height;if(visible>p->state.count)visible=p->state.count;
  if(visible<1)return 0;
- sb_dropdown_init(&p->state,count,visible);
+ sb_dropdown_init(&p->state,p->state.count,visible);
  if(p->current>=0)sb_dropdown_move(&p->state,p->current);
  if(width>s->Width)width=s->Width;
  if(x+width>s->Width)x=s->Width-width;
@@ -59,8 +51,33 @@ int sb_popup_open(struct SbPopup *p,struct Screen *s,struct DrawInfo *draw,int x
  if(!p->window) {report(p,"dropdown window creation failed");return 0;}
  SetFont(p->window->RPort,draw->dri_Font);paint(p);report(p,"dropdown opened");return 1;
 }
+int sb_popup_open(struct SbPopup *p,struct Screen *s,struct DrawInfo *draw,int x,int y) {
+ sb_popup_close(p);p->screen=s;p->draw=draw;p->current=-1;p->pressed=-1;
+ int count=0;p->kind=0;p->result=-1;
+ struct List *list=LockPubScreenList();
+ if(list) {
+  for(struct PubScreenNode *n=(struct PubScreenNode*)list->lh_Head;n->psn_Node.ln_Succ && count<SB_MAX_SCREENS;n=(struct PubScreenNode*)n->psn_Node.ln_Succ) {
+   if(!n->psn_Node.ln_Name || strlen(n->psn_Node.ln_Name)>=sizeof(p->names[0]))continue;
+   strcpy(p->names[count],n->psn_Node.ln_Name);
+   if(n->psn_Screen==s)p->current=count;
+   count++;
+  }
+  UnlockPubScreenList();
+ }
+ p->state.count=count;return open_window(p,s,draw,x,y);
+}
+int sb_popup_open_list(struct SbPopup *p,struct Screen *s,struct DrawInfo *draw,int x,int y,const char labels[][128],int count) {
+ sb_popup_close(p);p->screen=s;p->draw=draw;p->current=-1;p->pressed=-1;p->kind=1;p->result=-1;
+ if(count<1 || count>SB_MAX_SCREENS)return 0;
+ for(int i=0;i<count;i++) {
+  if(strlen(labels[i])>=sizeof(p->names[i]))return 0;
+  strcpy(p->names[i],labels[i]);
+ }
+ p->state.count=count;return open_window(p,s,draw,x,y);
+}
 static void choose(struct SbPopup *p,int index) {
  if(index<0 || index>=p->state.count)return;
+ if(p->kind) {p->result=index;sb_popup_close(p);return;}
  struct Screen *s=LockPubScreen((STRPTR)p->names[index]);
  if(s) {ScreenToFront(s);UnlockPubScreen((STRPTR)p->names[index],s);report(p,p->names[index]);sb_popup_close(p);}
  else {

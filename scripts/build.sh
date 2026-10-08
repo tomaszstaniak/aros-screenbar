@@ -13,4 +13,13 @@ case "$compiler" in /*) ;; *) compiler="$base/$compiler";; esac
 case "$sysroot" in /*) ;; *) sysroot="$base/$sysroot";; esac
 [ -x "$compiler" ] && [ -d "$sysroot/include" ] || { echo "Compiler or SDK missing" >&2; exit 1; }
 mkdir -p "$base/build/$abi"
-"$compiler" --sysroot="$sysroot" -O2 -Wall -Wextra -Werror -o "$base/build/$abi/ScreenBar" "$base/src/screenbar.c" "$base/src/module.c" "$base/src/dropdown.c" "$base/src/popup.c"
+"$compiler" --sysroot="$sysroot" -O2 -Wall -Wextra -Werror -o "$base/build/$abi/ScreenBar" "$base/src/screenbar.c" "$base/src/module.c" "$base/src/dropdown.c" "$base/src/popup.c" "$base/src/registry.c" "$base/src/item_layout.c" "$base/src/server.c"
+
+"$compiler" --sysroot="$sysroot" -O2 -Wall -Wextra -Werror -I"$base/include" -o "$base/build/$abi/ScreenBarCounter" "$base/examples/counter.c" "$base/src/provider.c"
+
+"$compiler" --sysroot="$sysroot" -O2 -Wall -Wextra -Werror -I"$base/include" -o "$base/build/$abi/ScreenBarSDKTest" "$base/tests/provider_smoke.c" "$base/src/provider.c"
+
+"$compiler" --sysroot="$sysroot" -O2 -Wall -Wextra -Werror -I"$base/include" -c "$base/tests/sdk_cpp.cpp" -o "$base/build/$abi/sdk_cpp.o"
+"$compiler" --sysroot="$sysroot" -O2 -Wall -Wextra -Werror -o "$base/build/$abi/ScreenBarCppTest" "$base/build/$abi/sdk_cpp.o" "$base/src/provider.c"
+
+"$compiler" --sysroot="$sysroot" -O2 -Wall -Wextra -Werror -I"$base/include" -I"$base/src" -o "$base/build/$abi/ScreenBarServerTest" "$base/tests/server_smoke.c" "$base/src/server.c" "$base/src/registry.c"

@@ -9,3 +9,9 @@ for name in layout modules dropdown; do
  "$base/build/host-tests/test_$name"
  echo "$name tests passed"
 done
+
+"${CC:-cc}" -std=c99 -Wall -Wextra -Werror -I"$base/src" "$base/tests/test_registry.c" "$base/src/registry.c" -o "$base/build/host-tests/test_registry"
+"$base/build/host-tests/test_registry"
+
+"${CC:-cc}" -std=c99 -Wall -Wextra -Werror -I"$base/src" "$base/tests/test_item_layout.c" "$base/src/item_layout.c" -o "$base/build/host-tests/test_item_layout"
+"$base/build/host-tests/test_item_layout"

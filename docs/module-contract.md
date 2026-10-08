@@ -1,6 +1,6 @@
 # Module contract
 
-Status: experimental design, revision 0.1. This document distinguishes the
+Status: experimental design, revision 0.2. This document distinguishes the
 implemented built-in interface from the target extension contract. It is not a
 stable external SDK or a guarantee of binary compatibility.
 
@@ -10,39 +10,85 @@ A module supplies state and actions. ScreenBar owns presentation, placement,
 interaction and screen views. Persistent system modules and indicators registered
 by running applications use the same semantic contract.
 
-## What exists today
+## Experimental executable-provider SDK
 
-The standalone executable has three built-ins: Screens, Audio and Clock.
-[`src/module.h`](../src/module.h) is the authoritative source-level interface:
+[`include/screenbar.h`](../include/screenbar.h) and
+[`screenbar-protocol.h`](../include/screenbar-protocol.h) define protocol version 1.
+It is an experimental source interface: build the provider and host for the same
+CPU and AROS ABI. Binary layouts and the 0.x SDK may change.
+
+A host accepts up to eight external instances. It owns all presentation. The first
+provider vocabulary is a generic icon, a label, optional text and one optional
+action. The provider supplies its action label; an empty label means no action.
+The host draws its dropdown and delivers `SB_ACTION_PRIMARY` on selection.
 
 ```c
-enum SbModuleId { SB_MODULE_SCREENS, SB_MODULE_AUDIO, SB_MODULE_CLOCK };
-enum SbAction { SB_ACTION_NONE, SB_ACTION_SHOW_SCREENS, SB_ACTION_OPEN_AHI };
-enum SbIcon { SB_ICON_NONE, SB_ICON_SCREENS, SB_ICON_AUDIO };
-struct SbModuleState {
-    enum SbModuleId id;
-    enum SbIcon icon;
-    int available;
-    char text[32];
-};
-void sb_modules_update(struct SbModuleState states[3], const char *clock_text);
-enum SbAction sb_module_action(enum SbModuleId id);
+struct SbClient client;
+if (!sb_client_open(&client)) return 1;
+int status = sb_client_register(&client, "My app", "Ready", "Refresh");
+/* While registered, update regularly and handle the returned action. */
+unsigned action = 0;
+if (status == SB_OK)
+    status = sb_client_update(&client, "My app", "Ready", &action);
+/* Perform application work outside ScreenBar's renderer. */
+sb_client_close(&client);
 ```
 
-`sb_modules_update` initializes the three states; text is copied and terminated,
-with at most 31 bytes of content. `sb_module_action` maps Screens to SHOW_SCREENS,
-Audio to OPEN_AHI, and Clock or unknown IDs to NONE. There are no callbacks,
-registration functions, external-provider transport or plugin loader yet.
+This abbreviated example shows API calls; the
+[Counter example](../examples/counter.c) supplies the loop, discovery/re-registration,
+action handling and orderly shutdown needed by a real provider.
 
-The host currently assumes three slots and known icon types. `available` is
-reserved state vocabulary; disabled/unavailable rendering is not implemented.
-A fourth built-in still requires changing the slot/layout assumptions. Do not
-mistake this small implementation for the complete contract below.
+Labels and action labels hold at most 31 printable ASCII bytes; text holds 63.
+Every string must be NUL-terminated. Control characters, non-ASCII bytes and
+oversized strings are rejected. The SDK copies caller text into each request;
+the host copies the request into its own registry before replying.
 
-To contribute a built-in now, change module state/action mapping, integrate its
-layout/action in the host, add behavior tests and build against a matching AROS
-SDK. This is ordinary source contribution, not installation of an external module.
-See [build instructions](development.md).
+`sb_client_open` creates a task-owned reply port. `register` creates an instance;
+`update` advances its revision and receives a pending action; `unregister` removes
+it. `close` unregisters and deletes the reply port. Calls on a client are serial
+and must remain on the owning task; do not share it between tasks or reinitialize
+an open client. C++ callers use the C linkage declared by the header. Compile the
+helper as C; C++ objects and exceptions do not cross the interface.
+
+### Transport and ownership
+
+The named Exec port is `AROS.ScreenBar.1`. Discovery and sending run under
+Forbid/Permit; allocation and waiting do not. Clients send one request at a time
+and wait for ReplyMsg. The host never sends unsolicited messages and retains no
+client message, reply-port or task pointer after replying. Actions are coalesced:
+repeated selections before the next update produce one primary action, rather
+than an unbounded queue. They are delivered once, not retried automatically.
+
+**A request and its reply port must remain alive until the reply arrives.**
+No timeout permits freeing an in-flight request. Normal host shutdown removes its
+public port first, drains queued requests with `SB_STOPPED`, then releases it.
+A provider must finish an outstanding call before unregistering or exiting.
+
+The current transport targets trusted, cooperative local providers using the
+matched SDK. It is not a security boundary or an SMP safety guarantee. Forced
+host termination while a request is in flight can leave the caller waiting
+indefinitely. Forced producer termination can invalidate an in-flight request.
+Neither case is covered by this SDK's cooperative shutdown guarantee. Leases
+remove stale UI state; they do not reclaim messages or provide crash containment.
+
+### Discovery and lifecycle
+
+Publish at least once per second; the host removes an item after five seconds
+without a valid update, using its monotonic EClock time. Each host has an EClock
+session identity, each registration a nonreused token, and each update an
+increasing revision. Session/token mismatches and removed items return `SB_STALE`;
+old revisions return `SB_REVISION`. Expiry closes the item's dropdown.
+
+If the host is absent, calls return `SB_ABSENT`. After absence, `SB_STALE` or
+`SB_STOPPED`, a live application should retry registration at a modest interval.
+A host restart creates a new session. `SB_FULL` means capacity is reached;
+`SB_VERSION` and `SB_INVALID` indicate incompatible requests or invalid data.
+`SB_OK` is zero. A successful unregister clears the client's identity.
+
+System built-ins retain the IDs in [`src/module.h`](../src/module.h); the host now
+uses a dynamic view list instead of three fixed layout slots. Typed settings,
+custom icons, progress, multiple actions and Lua are future additions to the
+semantic contract below.
 
 ## Target semantic contract
 
@@ -83,8 +129,8 @@ are outside the first external contract.
 - Requests, responses and shared buffers need explicit ownership and completion
   rules. A timeout alone never authorizes freeing an in-flight message.
 
-Exact size limits, supported text encoding, asynchronous transport, cancellation
-and shutdown handshake must be specified and tested before an external SDK ships.
+The initial limits and cooperative shutdown are defined above. A future asynchronous
+transport needs separate cancellation and completion rules.
 
 ## Permanent and application-driven modules
 
@@ -101,8 +147,8 @@ player quits -> unregisters -> host removes views and popups
 ```
 
 A host restart requires live applications to rediscover and re-register with a
-new session. Unexpected producer exit or stall needs a defined liveness policy;
-a quiet indicator is not proof that its process has died. Preferences stores
+new session. The experimental SDK expires UI state after five seconds without updates;
+that is not proof that a process has died. Preferences stores
 show/hide and placement policy, not stale running registrations.
 
 ## Languages and delivery
@@ -112,7 +158,7 @@ AROS executable using a small C-facing SDK. C++ is welcome behind that boundary;
 STL objects, exceptions and C++ class layouts must not cross it. Build separate
 binaries for supported CPU/ABI combinations.
 
-This executable-provider SDK is planned, not available today. A program becomes
+The executable-provider SDK above implements the first subset. A program becomes
 an extension by implementing registration, state, actions and lifecycle; being
 an executable alone is insufficient. Process separation on AROS is not a promise
 of memory isolation or crash containment.
