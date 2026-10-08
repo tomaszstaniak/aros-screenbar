@@ -37,5 +37,7 @@ autostart is installed. Outside clicks dismiss the chooser on focus loss and
 also reach the underlying window. Overlay clicks can change focus; this is not
 a system-integrated menu or a complete desktop service.
 
+- [Vision and direction](docs/vision.md)
+- [Developer module contract](docs/module-contract.md)
 - [Build and tests](docs/development.md)
 - [Architecture and limitations](docs/architecture.md)
