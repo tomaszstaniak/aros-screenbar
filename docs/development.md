@@ -57,3 +57,23 @@ PASS/FAIL lines. UI actions and host restart need separate runtime checks.
 With ScreenBar stopped, `ScreenBarServerTest RAM:server-test.log` checks duplicate
 host rejection and replies to requests queued during normal server shutdown.
 `ScreenBarCppTest` checks opening and closing a client from C++ code.
+
+## Native attachment discovery probe
+
+`ScreenBarNativeProbe` queries Decoration's private title-child class without
+registering an object or modifying a screen. Build it separately, with explicit
+ABI-matched compiler and SDK environment variables:
+
+```sh
+scripts/build-native-probe.sh abiv11
+# In the target Shell:
+ScreenBarNativeProbe RAM:native-probe.log
+Type RAM:native-probe.log
+```
+
+The `abiv1` build uses its own `SCREENBAR_CC_ABIV1` and `SCREENBAR_SDK_ABIV1`.
+A nonzero class reply proves discovery only. It does not establish safe rendering,
+input routing, detachment or screen reopening. The probe ends after three queries;
+its synchronous message must be returned by the cooperative Decoration service.
+Do not forcibly terminate either task while a request is pending. No native
+attachment is enabled by this diagnostic.

@@ -15,3 +15,6 @@ done
 
 "${CC:-cc}" -std=c99 -Wall -Wextra -Werror -I"$base/src" "$base/tests/test_item_layout.c" "$base/src/item_layout.c" -o "$base/build/host-tests/test_item_layout"
 "$base/build/host-tests/test_item_layout"
+
+"${CC:-cc}" -std=c99 -Wall -Wextra -Werror "$base/tests/test_native_probe_wait.c" -o "$base/build/host-tests/test_native_probe_wait"
+"$base/build/host-tests/test_native_probe_wait"
