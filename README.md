@@ -4,6 +4,10 @@ An experimental native AROS screen-bar companion with a clock, an audio-settings
 shortcut and direct public-screen selection. The standalone version places a
 small borderless overlay beside the existing screen-depth gadget.
 
+![AROS ScreenBar with the screen chooser open](docs/images/screenbar-dropdown.png)
+
+Screen chooser on the optional demonstration screen.
+
 ## Features
 
 - Live `HH:MM` clock using the screen font and colors.
