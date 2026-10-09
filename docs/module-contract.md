@@ -99,7 +99,7 @@ names are intentionally not frozen.
 |---|---|---|
 | Identity | Stable module ID, display name, module version, required contract version | Reject incompatible required versions |
 | Instance | Instance ID and producer-session identity | Separate concurrent producers and discard stale updates |
-| Presentation | Icon identifier, bounded text, tooltip, optional progress | Font, colors, icon metrics, spacing, clipping and overflow |
+| Presentation | Icon content and kind, bounded text, tooltip, optional progress, preferred width | Shared placement, hit regions, text style, clipping and overflow |
 | State | Ready/unavailable/error, current values, optional diagnostic, revision | Replace snapshots atomically and expose truthful status |
 | Actions | Stable action IDs, labels and enabled states | Mouse/keyboard handling and shared dropdown presentation |
 | Settings | Typed keys, defaults, constraints | Validate and apply through common preferences |
@@ -112,6 +112,36 @@ settings belong to module/instance identities, not Screen pointers.
 The initial presentation vocabulary should remain small: icon, text, icon+text
 and bounded progress. Arbitrary drawing callbacks and custom preference code
 are outside the first external contract.
+
+### Icons, animation and widget width
+
+The contract must support three icon kinds:
+
+- **Monochrome:** a transparent one-bit image whose visible pixels use a
+  screen-bar detail pen, so it follows the active screen theme.
+- **Color:** a transparent full-color image with alpha, retaining its authored
+  colors when drawn on the screen bar.
+- **Animated:** a bounded sequence of monochrome or color frames. Each frame has
+  a duration; the sequence declares whether it loops or stops on its last frame.
+
+The host advances animation frames and schedules redraws. Providers do not run
+an update loop just to animate an icon, and they do not draw directly into an
+Intuition RastPort. The host owns the validated image data for as long as it is
+displayed; providers may release their source buffers after the update is
+accepted. The wire encoding, supported source file formats and resource limits
+must be specified by the SDK before its first stable release.
+
+Each widget view may declare its preferred width in pixels for the target
+screen mode. That width determines its layout allocation and hit region. When
+the available strip cannot fit the declared width, the host moves the item to
+overflow rather than silently squeezing or clipping it. If a widget omits a
+width, the host derives one from its content. Icon height is fitted to the
+screen-bar content area while preserving aspect ratio.
+
+These rules keep layout and input consistent while allowing each widget to
+choose its own visual asset, animation and width. The first prototype should
+validate monochrome recoloring, alpha compositing, frame timing, cleanup on
+unregister and overflow for a wide widget before freezing the wire format.
 
 ## Ownership and execution
 
@@ -162,6 +192,10 @@ The executable-provider SDK above implements the first subset. A program becomes
 an extension by implementing registration, state, actions and lifecycle; being
 an executable alone is insufficient. Process separation on AROS is not a promise
 of memory isolation or crash containment.
+
+This contract revision does not define an installer, package format or default
+module installation directory. Those are separate delivery decisions and are
+not prerequisites for settling the widget interface.
 
 Lua may later be supported by a runner that translates script state/actions into
 this same contract. It should not introduce another rendering API. Interpreter
