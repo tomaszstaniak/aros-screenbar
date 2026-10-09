@@ -1,0 +1,240 @@
+diff --git a/rom/intuition/Makefile b/rom/intuition/Makefile
+index d88ae64d..0412408c 100644
+--- a/rom/intuition/Makefile
++++ b/rom/intuition/Makefile
+@@ -34,6 +34,7 @@ OBJS = \
+ 	activatewindow.o\
+ 	addclass.o\
+ 	addgadget.o\
++	addscreenbargadget.o\
+ 	addglist.o\
+ 	allocremember.o\
+ 	alohaworkbench.o\
+diff --git a/rom/intuition/intuition.conf b/rom/intuition/intuition.conf
+index f25bf32f..83f884a9 100644
+--- a/rom/intuition/intuition.conf
++++ b/rom/intuition/intuition.conf
+@@ -1,5 +1,5 @@
+ ##begin config
+-version 50.10
++version 50.11
+ residentpri 15
+ libbasetype struct IntIntuitionBase
+ libbasetypeextern struct IntuitionBase
+@@ -214,6 +214,9 @@ ULONG SetPointerBounds(struct Screen *screen, struct Rectangle *rect, ULONG rese
+ Object **GetMonitorList(struct TagItem *tags) (A1)
+ void FreeMonitorList(Object **list) (A1)
+ # MorphOS: ScreenbarControlA(tags)(a1)
++BOOL AddScreenBarGadget(struct Screen *screen, struct Gadget *gadget, ULONG position) (A0, A1, D0)
++UWORD RemoveScreenBarGadget(struct Screen *screen, struct Gadget *gadget) (A0, A1)
++BOOL RefreshScreenBarGadget(struct Screen *screen, struct Gadget *gadget) (A0, A1)
+ ##end functionlist
+ 
+ ##begin class
+diff --git a/rom/intuition/mmakefile.src b/rom/intuition/mmakefile.src
+index e8f0c1b4..3b757cf2 100644
+--- a/rom/intuition/mmakefile.src
++++ b/rom/intuition/mmakefile.src
+@@ -33,6 +33,7 @@ FUNCS := \
+ 	activatewindow \
+ 	addclass \
+ 	addgadget \
++	addscreenbargadget \
+ 	addglist \
+ 	allocintuimessage \
+ 	allocremember \
+diff --git a/rom/intuition/addscreenbargadget.c b/rom/intuition/addscreenbargadget.c
+new file mode 100644
+index 00000000..6807ddd7
+--- /dev/null
++++ b/rom/intuition/addscreenbargadget.c
+@@ -0,0 +1,189 @@
++/*
++    Copyright (C) 2026 The AROS Development Team. All rights reserved.
++
++    Add or remove a BOOPSI gadget from a screen's native bar gadget list.
++*/
++
++#include <proto/layers.h>
++#include <proto/intuition.h>
++#include <intuition/gadgetclass.h>
++#include "intuition_intern.h"
++#include "inputhandler.h"
++#include "inputhandler_actions.h"
++
++struct RemoveScreenBarGadgetMsg
++{
++    struct IntuiActionMsg msg;
++    struct Screen *screen;
++    struct Gadget *gadget;
++    UWORD position;
++    BOOL success;
++};
++
++static VOID int_remove_screenbargadget(struct RemoveScreenBarGadgetMsg *msg,
++                                       struct IntuitionBase *IntuitionBase);
++
++static BOOL screenbargadget_present(struct Screen *screen, struct Gadget *gadget)
++{
++    struct Gadget *current;
++
++    for (current = screen->FirstGadget; current; current = current->NextGadget)
++        if (current == gadget)
++            return TRUE;
++
++    return FALSE;
++}
++
++static UWORD screenbargadget_remove(struct Screen *screen, struct Gadget *gadget,
++                                    struct IntuitionBase *IntuitionBase)
++{
++    struct Gadget **link;
++    UWORD position = 0;
++
++    LOCKGADGET(IntuitionBase)
++    link = &screen->FirstGadget;
++    while (*link && *link != gadget)
++    {
++        link = &(*link)->NextGadget;
++        position++;
++    }
++
++    if (*link)
++        *link = gadget->NextGadget;
++    else
++        position = (UWORD)-1;
++    UNLOCKGADGET(IntuitionBase)
++
++    return position;
++}
++
++        AROS_LH3(BOOL, AddScreenBarGadget,
++        AROS_LHA(struct Screen *, screen, A0),
++        AROS_LHA(struct Gadget *, gadget, A1),
++        AROS_LHA(ULONG, position, D0),
++        struct IntuitionBase *, IntuitionBase, 163, Intuition)
++{
++    AROS_LIBFUNC_INIT
++
++    struct Gadget **link;
++    ULONG count = 0;
++
++    if (!screen || !gadget || !screen->BarLayer)
++        return FALSE;
++
++    /* Screen gadgets are hit-tested and refreshed through FirstGadget. */
++    gadget->GadgetType |= GTYP_SCRGADGET;
++
++    LOCKGADGET(IntuitionBase)
++    if (screenbargadget_present(screen, gadget))
++    {
++        UNLOCKGADGET(IntuitionBase)
++        return FALSE;
++    }
++
++    link = &screen->FirstGadget;
++    while (*link && position && count < position)
++    {
++        link = &(*link)->NextGadget;
++        count++;
++    }
++    gadget->NextGadget = *link;
++    *link = gadget;
++    UNLOCKGADGET(IntuitionBase)
++
++    RenderScreenBar(screen, FALSE, IntuitionBase);
++    return TRUE;
++
++    AROS_LIBFUNC_EXIT
++}
++
++        AROS_LH2(UWORD, RemoveScreenBarGadget,
++        AROS_LHA(struct Screen *, screen, A0),
++        AROS_LHA(struct Gadget *, gadget, A1),
++        struct IntuitionBase *, IntuitionBase, 164, Intuition)
++{
++    AROS_LIBFUNC_INIT
++
++    struct RemoveScreenBarGadgetMsg msg;
++    UWORD position;
++
++    if (!screen || !gadget || !screen->BarLayer)
++        return (UWORD)-1;
++
++    LOCKGADGET(IntuitionBase)
++    if (!screenbargadget_present(screen, gadget))
++    {
++        UNLOCKGADGET(IntuitionBase)
++        return (UWORD)-1;
++    }
++    UNLOCKGADGET(IntuitionBase)
++    msg.screen = screen;
++    msg.gadget = gadget;
++    do
++    {
++        msg.success = FALSE;
++        DoSyncAction((APTR)int_remove_screenbargadget, &msg.msg, IntuitionBase);
++    } while (!msg.success);
++    position = msg.position;
++
++    if (position != (UWORD)-1)
++        RenderScreenBar(screen, FALSE, IntuitionBase);
++
++    return position;
++
++    AROS_LIBFUNC_EXIT
++}
++
++        AROS_LH2(BOOL, RefreshScreenBarGadget,
++        AROS_LHA(struct Screen *, screen, A0),
++        AROS_LHA(struct Gadget *, gadget, A1),
++        struct IntuitionBase *, IntuitionBase, 165, Intuition)
++{
++    AROS_LIBFUNC_INIT
++
++    BOOL present;
++
++    if (!screen || !gadget || !screen->BarLayer)
++        return FALSE;
++
++    LOCKGADGET(IntuitionBase)
++    present = screenbargadget_present(screen, gadget);
++    UNLOCKGADGET(IntuitionBase)
++
++    if (present)
++        RenderScreenBar(screen, FALSE, IntuitionBase);
++
++    return present;
++
++    AROS_LIBFUNC_EXIT
++}
++
++static VOID int_remove_screenbargadget(struct RemoveScreenBarGadgetMsg *msg,
++                                       struct IntuitionBase *IntuitionBase)
++{
++    struct IIHData *iihdata = (struct IIHData *)GetPrivIBase(IntuitionBase)->InputHandler->is_Data;
++    struct gpGoInactive gpgi;
++    UWORD position = 0;
++
++    if (iihdata->ActQualifier & (IEQUALIFIER_LEFTBUTTON | IEQUALIFIER_RBUTTON))
++    {
++        msg->success = FALSE;
++        return;
++    }
++
++    if (iihdata->ActiveGadget == msg->gadget || iihdata->ActiveSysGadget == msg->gadget)
++    {
++        gpgi.MethodID = GM_GOINACTIVE;
++        gpgi.gpgi_GInfo = NULL;
++        gpgi.gpgi_Abort = TRUE;
++        DoGadgetMethodA(msg->gadget, (struct Window *)msg->screen, NULL, (Msg)&gpgi);
++        msg->gadget->Activation &= ~GACT_ACTIVEGADGET;
++        if (iihdata->ActiveGadget == msg->gadget)
++            iihdata->ActiveGadget = NULL;
++        if (iihdata->ActiveSysGadget == msg->gadget)
++            iihdata->ActiveSysGadget = NULL;
++    }
++
++    msg->position = screenbargadget_remove(msg->screen, msg->gadget, IntuitionBase);
++    msg->success = TRUE;
++}

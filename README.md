@@ -53,4 +53,5 @@ ScreenBar. `--seconds N` limits a run; `--log PATH` records events.
 - [Vision and direction](docs/vision.md)
 - [Developer module contract](docs/module-contract.md)
 - [Build and tests](docs/development.md)
+- [Experimental native ABIv11 path](docs/native-v11.md)
 - [Architecture and limitations](docs/architecture.md)
