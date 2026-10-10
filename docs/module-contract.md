@@ -109,6 +109,24 @@ One producer can supply views on several screens. Opening another screen must
 not create another data collector by default. A view is temporary; persistent
 settings belong to module/instance identities, not Screen pointers.
 
+### Third-party module directory
+
+Third-party, persistent modules are installed by copying their module drawer to
+`SYS:ScreenBar/Modules/<module-id>/`. The drawer contains the target-ABI
+executable and any image or other assets owned by that module. ScreenBar scans
+this directory at startup and provides a rescan action so newly copied modules
+can be discovered without rebooting. The descriptor format and exact executable
+layout remain part of the SDK work; this directory does not imply a package
+installer.
+
+Application-provided items are different: they are published by the running
+application through the ScreenBar client contract and do not need to be copied
+into the module directory. This follows the permanent-module/runtime-item split
+used by MorphOS. MorphOS uses `SYS:Classes/Screenbar` and exposes a rescan action;
+AROS uses an application-specific directory because its first external modules
+are executable providers with their own assets, rather than MorphOS class files.
+See the [MorphOS module reference](https://library.morph.zone/Screenbar_Modules).
+
 The initial presentation vocabulary should remain small: icon, text, icon+text
 and bounded progress. Arbitrary drawing callbacks and custom preference code
 are outside the first external contract.
@@ -193,9 +211,8 @@ an extension by implementing registration, state, actions and lifecycle; being
 an executable alone is insufficient. Process separation on AROS is not a promise
 of memory isolation or crash containment.
 
-This contract revision does not define an installer, package format or default
-module installation directory. Those are separate delivery decisions and are
-not prerequisites for settling the widget interface.
+This contract revision defines the manual module destination, but not an
+installer or package format. Those are separate delivery decisions.
 
 Lua may later be supported by a runner that translates script state/actions into
 this same contract. It should not introduce another rendering API. Interpreter

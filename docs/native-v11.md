@@ -25,6 +25,26 @@ Intuition older than 50.11. Keep the screen locked with `LockPubScreen()` while
 the gadget is attached. Remove the gadget before freeing its BOOPSI object or
 unlocking the screen.
 
+## Visual contract POC
+
+`examples/native_widget_gallery.c` shows four host-rendered items: a
+theme-colored monochrome mask, an alpha-composited color icon, a three-frame
+animated icon and a 108-pixel-wide progress item. The sample synthesizes the
+pixels in memory; it tests rendering and per-item geometry, not the final asset
+file or provider wire formats. Build it against the matching patched SDK, which
+must contain the new Intuition prototypes and CyberGraphX headers:
+
+```sh
+SCREENBAR_CC_ABIV11=/path/to/x86_64-aros-gcc \
+SCREENBAR_SDK_ABIV11=/path/to/patched-v11-sdk \
+  sh scripts/build-native-gallery.sh
+```
+
+The executable is written to `build/native-v11/ScreenBarNativeGallery`. Run it
+on a system with the matching Intuition 50.11 library and
+`cybergraphics.library`; it removes its gadgets when it exits. A timeout in
+seconds may be passed as the first argument; Ctrl-C also exits.
+
 The calls are:
 
 - `AddScreenBarGadget(screen, gadget, position)` inserts the gadget into the
@@ -71,8 +91,10 @@ copy can be issued from a Shell, followed by a reboot.
 
 ## Verification status
 
-The custom Intuition library builds, exports all three calls, and the native
-clock example compiles with `-Wall -Wextra -Werror`. A runtime check of themed
-background rendering, mouse activation and removal is still pending. The
-configured v11 VM pool currently reports its machines as `unknown`, so this
-iteration has not installed or modified a guest library.
+The custom Intuition library builds, exports all three calls, and both the
+native clock and visual gallery compile with `-Wall -Wextra -Werror`. Host tests
+cover animation-frame timing and preferred-width selection. Runtime checks of
+themed background rendering, animation cadence, wide-item layout, mouse
+activation and removal are still pending. The configured v11 VM pool currently
+reports its machines as `unknown`, so this iteration has not installed or
+modified a guest library.
