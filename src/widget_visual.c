@@ -32,6 +32,11 @@ unsigned sb_animation_frame(const unsigned short *durations,
     return frame_count - 1;
 }
 
+unsigned sb_animation_bar_height(unsigned frame, unsigned column)
+{
+    return ((frame + column) % 4) + 1;
+}
+
 int sb_widget_width(int preferred_width, int intrinsic_width)
 {
     if (preferred_width > 0)

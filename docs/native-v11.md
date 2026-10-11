@@ -43,7 +43,10 @@ SCREENBAR_SDK_ABIV11=/path/to/patched-v11-sdk \
 The executable is written to `build/native-v11/ScreenBarNativeGallery`. Run it
 on a system with the matching Intuition 50.11 library and
 `cybergraphics.library`; it removes its gadgets when it exits. A timeout in
-seconds may be passed as the first argument; Ctrl-C also exits.
+seconds may be passed as the first argument; Ctrl-C also exits. The gallery
+shows a theme-colored monochrome mark, an alpha-color icon, a changing
+three-frame icon and a labeled progress item. The animated strip and full
+desktop capture are in `docs/evidence/`.
 
 The calls are:
 
@@ -91,10 +94,12 @@ copy can be issued from a Shell, followed by a reboot.
 
 ## Verification status
 
-The custom Intuition library builds, exports all three calls, and both the
-native clock and visual gallery compile with `-Wall -Wextra -Werror`. Host tests
-cover animation-frame timing and preferred-width selection. Runtime checks of
-themed background rendering, animation cadence, wide-item layout, mouse
-activation and removal are still pending. The configured v11 VM pool currently
-reports its machines as `unknown`, so this iteration has not installed or
-modified a guest library.
+The custom Intuition library builds and exports all three calls. Host tests
+cover animation-frame timing, animated-bar geometry and preferred-width
+selection. On an x86_64 ABIv11 scratch VM, Intuition 50.11 booted and the gallery
+rendered the mono, alpha-color, animated and progress examples over the native
+bar. Two captures confirmed that the animated icon changes frames. Ctrl-C
+removed the gadgets and restored the bar; the removal path redraws the full
+screen-bar layer to clear old pixels. The original Intuition 50.10 library was
+restored from backup and confirmed after reboot. This validates the standalone
+POC on ABIv11 only; it does not establish a mainline ABI v1 interface.

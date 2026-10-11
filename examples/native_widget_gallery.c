@@ -54,8 +54,9 @@ static BOOL icon_pixel(unsigned kind, unsigned frame, unsigned x, unsigned y)
 
     if (kind == WIDGET_ANIMATED)
     {
-        unsigned bar = (x / 4 + frame) % 4;
-        return x / 4 == bar && y >= 13 - bar * 3;
+        unsigned column = x / 4;
+        unsigned height = sb_animation_bar_height(frame, column);
+        return y >= ICON_SIZE - height * 4;
     }
 
     return FALSE;

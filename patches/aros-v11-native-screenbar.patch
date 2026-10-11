@@ -178,7 +178,7 @@ index 00000000..6807ddd7
 +    position = msg.position;
 +
 +    if (position != (UWORD)-1)
-+        RenderScreenBar(screen, FALSE, IntuitionBase);
++        RenderScreenBar(screen, TRUE, IntuitionBase);
 +
 +    return position;
 +
